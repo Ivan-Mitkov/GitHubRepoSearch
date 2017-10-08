@@ -67,10 +67,12 @@ public class MainActivity extends AppCompatActivity {
        new GithubQueryTask().execute(gitHubSearchUrl);
 
     }
+    //Helper methods for showing error message or results
     private void showJsonDataView(){
         mErrorMessageTextView.setVisibility(View.INVISIBLE);
         mSearchResultsTextView.setVisibility(View.VISIBLE);
     }
+    //Helper methods for showing error message or results
     private void showErrorMessage(){
         mErrorMessageTextView.setVisibility(View.VISIBLE);
         mSearchResultsTextView.setVisibility(View.INVISIBLE);
