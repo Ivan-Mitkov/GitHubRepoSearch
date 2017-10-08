@@ -71,11 +71,13 @@ public class NetworkUtils {
      * @throws IOException Related to network and stream reading
      */
     public static String getResponseFromHttpUrl(URL url) throws IOException {
+        //create connection object
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         try {
             InputStream in = urlConnection.getInputStream();
 
             Scanner scanner = new Scanner(in);
+            //"\A"read the entire content of the stream
             scanner.useDelimiter("\\A");
 
             boolean hasInput = scanner.hasNext();

@@ -15,6 +15,7 @@
  */
 package com.example.android.datafrominternet;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
@@ -25,6 +26,7 @@ import android.widget.Toast;
 
 import com.example.android.datafrominternet.utilities.NetworkUtils;
 
+import java.io.IOException;
 import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
@@ -44,10 +46,36 @@ public class MainActivity extends AppCompatActivity {
     }
     private void makeGithubSearchQuery(){
         String gitHubQuery=mSearchBoxEditText.getText().toString();
+        //build url
         URL gitHubSearchUrl= NetworkUtils.buildUrl(gitHubQuery);
+        //display url
         mUrlDisplayTextView.setText(gitHubSearchUrl.toString());
+        //create string to get connection
+        String gitHubSearchResult=null;
+        //instantiate GithubQueryTask
+       new GithubQueryTask().execute(gitHubSearchUrl);
     }
+    public class GithubQueryTask extends AsyncTask<URL,Void,String>{
+        @Override
+        protected String doInBackground(URL... params) {
+            URL searchURL = params[0];
+            String githubSearchResults = null;
+            try {
+                githubSearchResults = NetworkUtils.getResponseFromHttpUrl(searchURL);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return githubSearchResults;
+        }
 
+        @Override
+        protected void onPostExecute(String s) {
+            if(s!=null||!s.equals("")){
+                //set string with connection to text view to see the result
+                mSearchResultsTextView.setText(s);
+            }
+        }
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main,menu);
