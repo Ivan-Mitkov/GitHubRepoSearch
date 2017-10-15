@@ -128,6 +128,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     @Override
     public Loader<String> onCreateLoader(int id, final Bundle args) {
         return new AsyncTaskLoader<String>(this) {
+            // Create a String member variable called mGithubJson that will store the raw JSON
+            String mGithubJson;
             @Override
             public String loadInBackground() {
                  /* Extract the search query from the args using our constant */
@@ -153,7 +155,18 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                     return;
                 }
                 mLoadingIndicator.setVisibility(View.VISIBLE);
-                forceLoad();
+                if(mGithubJson==null){
+                    forceLoad();
+                }
+                else {
+                    deliverResult(mGithubJson);
+                }
+                // If mGithubJson is not null, deliver that result. Otherwise, force a load
+            }
+            @Override
+            public void deliverResult(String data){
+                mGithubJson=data;
+                super.deliverResult(data);
             }
         };
     }
