@@ -42,6 +42,9 @@ public class MainActivity extends AppCompatActivity {
     TextView mErrorMessageTextView;
     ProgressBar mLoadingIndicator;
 
+    private static final String SEARCHED_QUERY = "query";
+    private static final String SEARCHED_JSON = "results";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,6 +55,13 @@ public class MainActivity extends AppCompatActivity {
         mSearchResultsTextView=(TextView)findViewById(R.id.tv_github_search_results_json);
         mErrorMessageTextView=(TextView)findViewById(R.id.tv_error_message);
         mLoadingIndicator=(ProgressBar)findViewById(R.id.pb_loading_indicator);
+        if(savedInstanceState!=null){
+            String queryURL= savedInstanceState.getString(SEARCHED_QUERY);
+            String jsonResult = savedInstanceState.getString(SEARCHED_JSON);
+
+            mUrlDisplayTextView.setText(queryURL);
+            mSearchResultsTextView.setText(jsonResult);
+        }
 
 
     }
@@ -61,8 +71,7 @@ public class MainActivity extends AppCompatActivity {
         URL gitHubSearchUrl= NetworkUtils.buildUrl(gitHubQuery);
         //display url
         mUrlDisplayTextView.setText(gitHubSearchUrl.toString());
-        //create string to get connection
-        String gitHubSearchResult=null;
+
         //instantiate GithubQueryTask
        new GithubQueryTask().execute(gitHubSearchUrl);
 
@@ -77,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
         mErrorMessageTextView.setVisibility(View.VISIBLE);
         mSearchResultsTextView.setVisibility(View.INVISIBLE);
     }
-    public class GithubQueryTask extends AsyncTask<URL,Void,String>{
+    private class GithubQueryTask extends AsyncTask<URL,Void,String>{
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
@@ -125,4 +134,14 @@ public class MainActivity extends AppCompatActivity {
         }
         return super.onOptionsItemSelected(item);
     }
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        String githubSearchUrl= mUrlDisplayTextView.getText().toString();
+        outState.putString(SEARCHED_QUERY,githubSearchUrl);
+        String queryResult = mSearchResultsTextView.getText().toString();
+        outState.putString(SEARCHED_JSON,queryResult);
+
+    }
+
 }
