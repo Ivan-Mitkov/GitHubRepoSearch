@@ -17,131 +17,184 @@ package com.example.android.datafrominternet;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.AsyncTaskLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.android.datafrominternet.utilities.NetworkUtils;
+
 
 import java.io.IOException;
 import java.net.URL;
 
-import static android.R.attr.id;
-import static android.icu.lang.UCharacter.GraphemeClusterBreak.V;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<String>{
 
-    EditText mSearchBoxEditText;
-    TextView mUrlDisplayTextView;
-    TextView mSearchResultsTextView;
-    TextView mErrorMessageTextView;
-    ProgressBar mLoadingIndicator;
 
-    private static final String SEARCHED_QUERY = "query";
-    private static final String SEARCHED_JSON = "results";
+    /* A constant to save and restore the URL that is being displayed */
+    private static final String SEARCH_QUERY_URL_EXTRA = "query";
+
+    /* A constant to save and restore the JSON that is being displayed */
+    private static final String SEARCH_RESULTS_RAW_JSON = "results";
+
+
+    private static final int GITHUB_SEARCH_LOADER=20;
+    private EditText mSearchBoxEditText;
+
+    private TextView mUrlDisplayTextView;
+    private TextView mSearchResultsTextView;
+
+    private TextView mErrorMessageDisplay;
+
+    private ProgressBar mLoadingIndicator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mSearchBoxEditText=(EditText) findViewById(R.id.et_search_box);
-        mUrlDisplayTextView= (TextView)findViewById(R.id.tv_url_display);
-        mSearchResultsTextView=(TextView)findViewById(R.id.tv_github_search_results_json);
-        mErrorMessageTextView=(TextView)findViewById(R.id.tv_error_message);
-        mLoadingIndicator=(ProgressBar)findViewById(R.id.pb_loading_indicator);
-        if(savedInstanceState!=null){
-            String queryURL= savedInstanceState.getString(SEARCHED_QUERY);
-            String jsonResult = savedInstanceState.getString(SEARCHED_JSON);
+        mSearchBoxEditText = (EditText) findViewById(R.id.et_search_box);
 
-            mUrlDisplayTextView.setText(queryURL);
-            mSearchResultsTextView.setText(jsonResult);
+        mUrlDisplayTextView = (TextView) findViewById(R.id.tv_url_display);
+        mSearchResultsTextView = (TextView) findViewById(R.id.tv_github_search_results_json);
+
+        mErrorMessageDisplay = (TextView) findViewById(R.id.tv_error_message);
+
+        mLoadingIndicator = (ProgressBar) findViewById(R.id.pb_loading_indicator);
+
+        if (savedInstanceState != null) {
+            String queryUrl = savedInstanceState.getString(SEARCH_QUERY_URL_EXTRA);
+
+        }
+
+        getSupportLoaderManager().initLoader(GITHUB_SEARCH_LOADER, null, this);
+        // Initialize the loader with GITHUB_SEARCH_LOADER as the ID, null for the bundle, and this for the context
+    }
+
+    /**
+     * This method retrieves the search text from the EditText, constructs the
+     * URL (using {@link NetworkUtils}) for the github repository you'd like to find, displays
+     * that URL in a TextView, and finally request that an AsyncTaskLoader performs the GET request.
+     */
+    private void makeGithubSearchQuery() {
+        String githubQuery = mSearchBoxEditText.getText().toString();
+        //  If no search was entered, indicate that there isn't anything to search for and return
+        if(githubQuery==null||TextUtils.isEmpty(githubQuery)){
+            return;
         }
 
 
-    }
-    private void makeGithubSearchQuery (){
-        String gitHubQuery=mSearchBoxEditText.getText().toString();
-        //build url
-        URL gitHubSearchUrl= NetworkUtils.buildUrl(gitHubQuery);
-        //display url
-        mUrlDisplayTextView.setText(gitHubSearchUrl.toString());
+        URL githubSearchUrl = NetworkUtils.buildUrl(githubQuery);
+        mUrlDisplayTextView.setText(githubSearchUrl.toString());
+        //saving url use putString with SEARCH_QUERY_URL_EXTRA as the key and the String value of the URL as the value
+        Bundle queryBundle = new Bundle();
+        queryBundle.putString(SEARCH_QUERY_URL_EXTRA, githubSearchUrl.toString());
+        //create loader manager
+        LoaderManager loaderManager= getSupportLoaderManager();
+        //Get our Loader by calling getLoader and passing the ID we specified
+        Loader<String> githubSeacheLoader = loaderManager.getLoader(GITHUB_SEARCH_LOADER);
+        if(loaderManager==null){
+            loaderManager.initLoader(GITHUB_SEARCH_LOADER, queryBundle,this);
+        }
+        else{
+            loaderManager.restartLoader(GITHUB_SEARCH_LOADER,queryBundle,this);
+        }
 
-        //instantiate GithubQueryTask
-       new GithubQueryTask().execute(gitHubSearchUrl);
-
     }
-    //Helper methods for showing error message or results
-    private void showJsonDataView(){
-        mErrorMessageTextView.setVisibility(View.INVISIBLE);
+
+    private void showJsonDataView() {
+        /* First, make sure the error is invisible */
+        mErrorMessageDisplay.setVisibility(View.INVISIBLE);
+        /* Then, make sure the JSON data is visible */
         mSearchResultsTextView.setVisibility(View.VISIBLE);
     }
-    //Helper methods for showing error message or results
-    private void showErrorMessage(){
-        mErrorMessageTextView.setVisibility(View.VISIBLE);
+
+    private void showErrorMessage() {
+        /* First, hide the currently visible data */
         mSearchResultsTextView.setVisibility(View.INVISIBLE);
+        /* Then, show the error */
+        mErrorMessageDisplay.setVisibility(View.VISIBLE);
     }
-    private class GithubQueryTask extends AsyncTask<URL,Void,String>{
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            mLoadingIndicator.setVisibility(View.VISIBLE);
-        }
 
-        @Override
-        protected String doInBackground(URL... params) {
-            URL searchURL = params[0];
-            String githubSearchResults = null;
 
-            try {
-                githubSearchResults = NetworkUtils.getResponseFromHttpUrl(searchURL);
-            } catch (IOException e) {
-                e.printStackTrace();
+    @Override
+    public Loader<String> onCreateLoader(int id, final Bundle args) {
+        return new AsyncTaskLoader<String>(this) {
+            @Override
+            public String loadInBackground() {
+                 /* Extract the search query from the args using our constant */
+                String searcheQueryUrlString = args.getString(SEARCH_QUERY_URL_EXTRA);
+                 /* If no arguments were passed, we don't have a query to perform. Simply return. */
+                if(searcheQueryUrlString==null|| TextUtils.isEmpty(searcheQueryUrlString)){
+                    return null;
+                }
+                /* Parse the URL from the passed in String and perform the search */
+                try {
+                    URL githubUrl = new URL(searcheQueryUrlString);
+                    return NetworkUtils.getResponseFromHttpUrl(githubUrl);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return null;
+                }
             }
-            return githubSearchResults;
-        }
 
-        @Override
-        protected void onPostExecute(String s) {
-            mLoadingIndicator.setVisibility(View.INVISIBLE);
-            if(s!=null&&!s.equals("")){
-                showJsonDataView();
-                //set string with connection to text view to see the result
-                mSearchResultsTextView.setText(s);
+            @Override
+            protected void onStartLoading() {
+                super.onStartLoading();
+                if(args==null){
+                    return;
+                }
+                mLoadingIndicator.setVisibility(View.VISIBLE);
+                forceLoad();
             }
-            else{
-                showErrorMessage();
-            }
-        }
+        };
     }
     @Override
+    public void onLoadFinished(Loader<String> loader, String data) {
+        mLoadingIndicator.setVisibility(View.INVISIBLE);
+        if (data != null && !data.equals("")) {
+            showJsonDataView();
+            mSearchResultsTextView.setText(data);
+        } else {
+            showErrorMessage();
+        }
+    }
+
+    @Override
+    public void onLoaderReset(Loader<String> loader) {
+
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main,menu);
+        getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int menuItemSelected = item.getItemId();
-        if(menuItemSelected==R.id.action_search){
-           makeGithubSearchQuery();
+        int itemThatWasClickedId = item.getItemId();
+        if (itemThatWasClickedId == R.id.action_search) {
+            makeGithubSearchQuery();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
+
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        String githubSearchUrl= mUrlDisplayTextView.getText().toString();
-        outState.putString(SEARCHED_QUERY,githubSearchUrl);
-        String queryResult = mSearchResultsTextView.getText().toString();
-        outState.putString(SEARCHED_JSON,queryResult);
+
+        String queryUrl = mUrlDisplayTextView.getText().toString();
+        outState.putString(SEARCH_QUERY_URL_EXTRA, queryUrl);
 
     }
-
 }
